@@ -1,0 +1,71 @@
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS explode_table $$
+CREATE PROCEDURE explode_table(bound VARCHAR(255))
+
+  BEGIN
+
+    DECLARE book_id INT DEFAULT 0;
+    DECLARE author_name TEXT;
+    DECLARE occurance INT DEFAULT 0;
+    DECLARE i INT DEFAULT 0;
+    DECLARE splitted_author_name TEXT;
+    DECLARE done INT DEFAULT 0;
+    DECLARE cur1 CURSOR FOR SELECT library.book_authors.book_id, book_authors.author_name
+                                         FROM library.book_authors
+                                         WHERE library.book_authors.author_name != '';
+     
+
+DROP TEMPORARY TABLE IF EXISTS book_author;
+    CREATE TEMPORARY TABLE book_author(
+    `id` INT NOT NULL,
+    `value` VARCHAR(255) NOT NULL
+    ) ENGINE=Memory;
+
+
+    OPEN cur1;
+      read_loop: LOOP
+        FETCH cur1 INTO book_id, author_name;
+        IF done THEN
+          LEAVE read_loop;
+        END IF;
+
+        SET occurance = (SELECT LENGTH(author_name)
+                                 - LENGTH(REPLACE(author_name, bound, ''))
+                                 +1);
+        SET i=1;
+        WHILE i <= occurance DO
+          SET splitted_author_name =
+          (SELECT REPLACE(SUBSTRING(SUBSTRING_INDEX(author_name, bound, i),
+          LENGTH(SUBSTRING_INDEX(author_name, bound, i - 1)) + 1), ',', ''));
+
+          INSERT INTO book_author values (book_id, splitted_author_name);
+          SET i = i + 1;
+
+        END WHILE;
+      END LOOP;
+
+      SELECT * FROM book_author;
+    CLOSE cur1;
+  END; $$
+delimiter ;
+
+
+
+
+
+
+
+Update book_authors set minit is Null where minit = ' '; 
+Update book_authors set fname is Null , minit is Null , lname is Null where author_name = 'Various'; 
+Update book_authors set fname is Null , minit is Null , lname is Null where author_name = 'The Beatles'; 
+Update book_authors set fname is Null , minit is Null , lname is Null where author_name = 'Los Angeles County Museum of Art California'; 
+Update book_authors set lname is Null where author_name = 'Preiss-Glasser';
+
+
+
+
+
+
+
+(Select bk.book_id,bk.title,ba.Author_Name,bc.Branch_id,bc.No_of_Copies,(bc.No_Of_Copies-(Count(bl.book_id))) As Available_Copies from book bk, book_authors ba, book_copies bc, book_loans bl where ba.author_name like '%%' and bk.book_id like '%%' AND bk.title like '%algo%' AND bk.book_id=ba.book_id AND bk.book_id=bc.book_id AND bk.book_id=bl.book_id AND bc.branch_id=bl.branch_id Group By bc.branch_id, ba.author_name) Union (Select bk.book_id,bk.title,ba.Author_Name,bc.Branch_id,bc.No_of_Copies,bc.No_Of_Copies As Available_Copies from book bk, book_authors ba, book_copies bc where ba.author_name like '%%'and bk.book_id like '%%' AND bk.title like '%algo%' AND bk.book_id=ba.book_id AND bk.book_id=bc.book_id AND bc.branch_id Not In (Select bll.branch_id from book_loans bll where bc.book_id=bll.book_id AND bc.branch_id = bll.branch_id and bll.date_in <=> null)) order by title,branch_id;
